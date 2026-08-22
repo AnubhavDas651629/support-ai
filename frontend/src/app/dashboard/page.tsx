@@ -45,6 +45,15 @@ export default function DashboardPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Auth guard. AuthContext restores the session from localStorage on mount, so
+  // wait for isAuthLoading to settle before deciding — redirecting earlier would
+  // bounce authenticated users on every refresh.
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.replace("/login?next=/dashboard");
+    }
+  }, [isAuthLoading, user, router]);
+
   const getTabTitle = () => {
     switch (activeTab) {
       case "tickets":
@@ -75,6 +84,18 @@ export default function DashboardPage() {
     else if (key === "upload_doc") setActiveTab("knowledge");
     else if (key === "webhooks" || key === "api_keys") setActiveTab("developer");
   };
+
+  // While the session resolves, and for the frame between deciding the visitor
+  // is unauthenticated and the redirect landing, show a spinner rather than the
+  // dashboard — otherwise protected content flashes on screen.
+  if (isAuthLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] dark:bg-slate-950">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <span className="sr-only">Loading your workspace…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
