@@ -20,8 +20,8 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Support-AI — From question to resolution",
-    template: "%s · Support-AI",
+    default: "Support AI",
+    template: "%s · Support AI",
   },
   description:
     "Support-AI connects your documentation, customer data and live APIs to investigate issues, take action and resolve requests without the back-and-forth.",
