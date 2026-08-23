@@ -10,8 +10,8 @@ from app.api.v1 import messages
 from app.api.v1 import ticket_events
 from app.api.v1 import ticket
 from app.api.v1 import ticket_notes
-from app.api.v1 import test
-from app.api.v1 import redis_test
+from app.api.v1 import test_celery
+from app.api.v1 import test_redis
 from app.api.v1 import organization_settings
 from app.api.v1 import api_keys
 from app.api.v1 import webhooks
@@ -109,9 +109,9 @@ app.include_router(knowledge_bases.router, prefix="/api/v1")
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
-app.include_router(test.router, prefix="/api/v1")
+app.include_router(test_celery.router, prefix="/api/v1")
 app.include_router(api_keys.router, prefix="/api/v1")
-app.include_router(redis_test.router, prefix="/api/v1")
+app.include_router(test_redis.router, prefix="/api/v1")
 app.include_router(conversations.router, prefix="/api/v1")
 app.include_router(ticket.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
