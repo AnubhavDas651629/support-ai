@@ -321,7 +321,7 @@ The platform supports **three** ways to authenticate, plus a stateless API key m
 To avoid hallucinated/unparsable triage output, the platform uses **Pydantic-bounded structured outputs** (`TypeVar("T", bound=BaseModel)`) via OpenAI's `beta.chat.completions.parse`, used for the router decision, the escalation decision, and any future structured generation:
 
 ```python
-class OpenAIProvivder(LLMProvider):
+class OpenAIProvider(LLMProvider):
     MODEL = "gpt-4.1-mini"
 
     @retry(

@@ -13,7 +13,7 @@ def return_fallback_message(retry_state):
     """Called if OpenAI completely fails after all 3 retries"""
     return "I apologize, but our AI support system is currently experiencing high traffic. Please email support@company.com for immediate assistance."
     
-class OpenAIProvivder(LLMProvider):
+class OpenAIProvider(LLMProvider):
     MODEL = "gpt-4.1-mini"
     # Wait 2s, then 4s, up to 3 attempts. Only retry for connection/server/rate-limit issues.
     @retry(

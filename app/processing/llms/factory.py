@@ -1,7 +1,7 @@
 from .base import LLMProvider
-from .openai import OpenAIProvivder
+from .openai import OpenAIProvider
 
 class LLMFactory:
     @staticmethod
     def get_provider() -> LLMProvider:
-        return OpenAIProvivder()
+        return OpenAIProvider()
