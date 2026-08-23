@@ -21,6 +21,11 @@ class SubscriptionResponse(BaseModel):
     current_period_start: datetime
     current_period_end: datetime
     limits: PlanLimitsResponse
+    # Stripe state, not ids: the dashboard needs to know whether a plan change
+    # should open checkout (no subscription yet) or the billing portal (Stripe
+    # already bills this org, so it owns the swap, proration and cancellation).
+    has_billing_account: bool
+    has_stripe_subscription: bool
 
 class CheckoutRequest(BaseModel): #over here the urls are provied by out frontend
     price_id: str

@@ -114,11 +114,14 @@ async def stream_chat(
         yield f"data: {initial_meta}\n\n"
         
         service = ChatService(session=session)
-        async for token in service.stream_answer(
+        async for chunk in service.stream_answer(
             conversation_id=conversation.id,
             question=request.question,
         ):
-            chunk_data = json.dumps({"type": "token", "content": token})
+            if isinstance(chunk, dict):
+                chunk_data = json.dumps({"type": "citations", **chunk})
+            else:
+                chunk_data = json.dumps({"type": "token", "content": chunk})
             yield f"data: {chunk_data}\n\n"
             
         yield "data: [DONE]\n\n"

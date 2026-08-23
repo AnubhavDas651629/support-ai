@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, ExternalLink, Minus } from "lucide-react";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/Panel";
@@ -9,6 +10,7 @@ import { InlineAlert, LoadingRows } from "@/components/ui/States";
 import { Meter } from "@/components/charts/Meter";
 import { billingApi } from "@/lib/api";
 import { PLANS, PLAN_COMPARISON } from "@/lib/plans";
+import type { PlanTier } from "@/lib/api/types";
 import { PLAN_META, canManageOrganization } from "@/lib/domain";
 import { useAsyncAction } from "@/lib/hooks";
 import { useOrganization } from "@/context/OrganizationContext";
@@ -25,13 +27,30 @@ export default function BillingPage() {
   const orgId = currentOrg?.id ?? null;
   const canManage = canManageOrganization(role);
 
-  const checkout = useAsyncAction(async (priceId: string) => {
-    const { checkout_url } = await billingApi.checkout(orgId!, {
-      price_id: priceId,
-      success_url: `${window.location.origin}/dashboard/settings/billing?upgraded=1`,
-      cancel_url: window.location.href,
-    });
-    window.location.href = checkout_url;
+  // Which card is mid-request, so only the button that was clicked spins.
+  const [pendingTier, setPendingTier] = useState<PlanTier | null>(null);
+
+  /**
+   * Every plan change ends on a Stripe-hosted page. `priceId` picks which one:
+   * with it we open Checkout to start a new subscription, without it we open
+   * the billing portal, which is the only surface that can swap or cancel a
+   * subscription Stripe is already billing.
+   */
+  const changePlan = useAsyncAction(async (tier: PlanTier, priceId?: string) => {
+    setPendingTier(tier);
+    try {
+      const { checkout_url } = priceId
+        ? await billingApi.checkout(orgId!, {
+            price_id: priceId,
+            success_url: `${window.location.origin}/dashboard/settings/billing?upgraded=1`,
+            cancel_url: window.location.href,
+          })
+        : await billingApi.portal(orgId!, window.location.href);
+      window.location.href = checkout_url;
+    } catch (err) {
+      setPendingTier(null);
+      throw err;
+    }
   });
 
   const portal = useAsyncAction(async () => {
@@ -40,6 +59,15 @@ export default function BillingPage() {
   });
 
   const plan = subscription ? PLAN_META[subscription.plan_tier] : null;
+  const ownerOnly = canManage
+    ? undefined
+    : "Only the organization owner can change the plan";
+  // The portal is worth offering once Stripe knows this org — on a paid plan,
+  // or after any checkout, which is what leaves a customer behind.
+  const canOpenPortal =
+    canManage &&
+    !!subscription &&
+    (subscription.plan_tier !== "FREE" || subscription.has_billing_account);
 
   return (
     <div className="space-y-6">
@@ -55,7 +83,7 @@ export default function BillingPage() {
         title="Plan & usage"
         description="What you're on, what you've used, and what changes if you move up."
         actions={
-          subscription && subscription.plan_tier !== "FREE" && canManage ? (
+          canOpenPortal ? (
             <Button size="sm" loading={portal.pending} onClick={() => portal.run()}>
               Manage billing
               <ExternalLink className="size-3.5" />
@@ -64,8 +92,8 @@ export default function BillingPage() {
         }
       />
 
-      {(checkout.error || portal.error) && (
-        <InlineAlert>{checkout.error ?? portal.error}</InlineAlert>
+      {(changePlan.error || portal.error) && (
+        <InlineAlert>{changePlan.error ?? portal.error}</InlineAlert>
       )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -102,6 +130,11 @@ export default function BillingPage() {
                   limit={usage.ai_responses.limit}
                 />
                 <Meter
+                  label="AI tokens"
+                  used={usage.ai_tokens.used}
+                  limit={usage.ai_tokens.limit}
+                />
+                <Meter
                   label="Document storage"
                   used={usage.storage_bytes.used}
                   limit={usage.storage_bytes.limit}
@@ -125,6 +158,16 @@ export default function BillingPage() {
         {PLANS.map((definition) => {
           const isCurrent = subscription?.plan_tier === definition.tier;
           const priceId = PRICE_IDS[definition.tier];
+          /**
+           * Checkout can only ever *start* a subscription: sending an existing
+           * subscriber there bills them a second time instead of switching
+           * their plan, and it has no way to express "drop back to Free" at
+           * all. So a downgrade always goes to the billing portal, and so does
+           * any change once Stripe is already billing this org — the portal is
+           * what owns the swap, the proration and the cancellation.
+           */
+          const viaPortal =
+            definition.tier === "FREE" || !!subscription?.has_stripe_subscription;
           return (
             <div
               key={definition.tier}
@@ -158,18 +201,27 @@ export default function BillingPage() {
                   <Button fullWidth disabled>
                     Your plan
                   </Button>
-                ) : definition.tier === "FREE" ? (
-                  <Button fullWidth disabled title="Downgrade from the billing portal">
-                    Downgrade in portal
+                ) : viaPortal ? (
+                  <Button
+                    fullWidth
+                    variant={definition.tier === "PRO" ? "primary" : "secondary"}
+                    loading={pendingTier === definition.tier}
+                    disabled={!canManage}
+                    title={ownerOnly}
+                    onClick={() => changePlan.run(definition.tier)}
+                  >
+                    {definition.tier === "FREE"
+                      ? "Switch to Free"
+                      : `Switch to ${definition.name}`}
                   </Button>
                 ) : priceId ? (
                   <Button
                     fullWidth
                     variant={definition.tier === "PRO" ? "primary" : "secondary"}
-                    loading={checkout.pending}
+                    loading={pendingTier === definition.tier}
                     disabled={!canManage}
-                    title={!canManage ? "Only the organization owner can change the plan" : undefined}
-                    onClick={() => checkout.run(priceId)}
+                    title={ownerOnly}
+                    onClick={() => changePlan.run(definition.tier, priceId)}
                   >
                     Upgrade to {definition.name}
                   </Button>

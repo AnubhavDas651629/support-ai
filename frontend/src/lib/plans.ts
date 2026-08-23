@@ -109,6 +109,11 @@ export const PLAN_COMPARISON: {
     format: (v) => (v as number).toLocaleString(),
   },
   {
+    label: "AI tokens / month",
+    key: "max_ai_tokens_per_month",
+    format: (v) => (v as number).toLocaleString(),
+  },
+  {
     label: "Knowledge bases",
     key: "max_knowledge_bases",
     format: (v) => String(v),

@@ -43,7 +43,9 @@ async def get_subscription(
         status=sub.status,
         current_period_start=sub.current_period_start,
         current_period_end=sub.current_period_end,
-        limits=PlanLimitsResponse(**tier_limits)
+        limits=PlanLimitsResponse(**tier_limits),
+        has_billing_account=sub.stripe_customer_id is not None,
+        has_stripe_subscription=sub.stripe_subscription_id is not None,
     )
 
 

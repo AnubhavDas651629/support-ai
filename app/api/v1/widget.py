@@ -118,6 +118,7 @@ async def get_widget_conversation_messages(
             id=msg.id,
             role=msg.role.value if hasattr(msg.role, "value") else str(msg.role),
             content=msg.content,
+            citations=msg.citations or [],
             created_at=msg.created_at,
         )
         for msg in messages
@@ -168,11 +169,14 @@ async def stream_widget_chat(
         })
         yield f"data: {initial_meta}\n\n"
         chat_service = ChatService(session=session)
-        async for token in chat_service.stream_answer(
+        async for chunk in chat_service.stream_answer(
             conversation_id=conversation.id,
             question=payload.question,
         ):
-            chunk_data = json.dumps({"type": "token", "content": token})
+            if isinstance(chunk, dict):
+                chunk_data = json.dumps({"type": "citations", **chunk})
+            else:
+                chunk_data = json.dumps({"type": "token", "content": chunk})
             yield f"data: {chunk_data}\n\n"
         # End of stream event
         yield "data: [DONE]\n\n"
