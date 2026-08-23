@@ -30,11 +30,12 @@
 
     // 2. State
     let config = {
-        widget_title: "Support Assistant",
+        widget_title: "Support",
         primary_color: "#2C5CFF",
         company_logo_url: null,
         organization_name: null,
-        welcome_message: welcomeOverride || "Hi there! How can we help you today?",
+        welcome_message: welcomeOverride || "Hi there! How can we help?",
+        user_name: null,
     };
     let isOpen = false;
     let isStreaming = false;
@@ -231,13 +232,13 @@
 
     /* Header — a hairline bar, not a coloured slab */
     #supportai-header {
-      background: var(--sai-surface);
+      background: linear-gradient(135deg, var(--sai-surface) 0%, var(--sai-surface-2) 100%);
       border-bottom: 1px solid var(--sai-line);
-      padding: 11px 10px 11px 14px;
+      padding: 14px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
       flex-shrink: 0;
     }
     .sai-header-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -254,11 +255,15 @@
     .sai-header-text { min-width: 0; }
     .sai-header-text h3 {
       margin: 0;
-      font-size: 13.5px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
       color: var(--sai-fg);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sai-header-subtitle {
+      font-size: 12px; color: var(--sai-muted);
+      display: flex; align-items: center; gap: 5px; margin-top: 2px;
     }
     .sai-status {
       font-size: 11.5px; color: var(--sai-muted);
@@ -277,13 +282,35 @@
     /* Messages */
     #supportai-messages {
       flex: 1;
-      padding: 14px;
+      padding: 20px 16px 14px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       background: var(--sai-bg);
       position: relative;
       scroll-behavior: smooth;
+    }
+    #sai-welcome-greeting {
+      margin-bottom: 16px;
+    }
+    .sai-greeting-user {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--sai-fg);
+      margin-bottom: 6px;
+    }
+    .sai-greeting-subtitle {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--sai-muted);
+      max-width: 90%;
+    }
+    .sai-greeting-highlight {
+      background: linear-gradient(120deg, var(--sai-accent-text) 0%, #a855f7 50%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 600;
     }
     .sai-msg-row { display: flex; max-width: 100%; margin-top: 8px; }
     .sai-msg-row:first-of-type { margin-top: 0; }
@@ -448,8 +475,8 @@
         <div class="sai-header-info">
           <div class="sai-avatar" id="sai-avatar-box">AI</div>
           <div class="sai-header-text">
-            <h3 id="sai-title">Support Assistant</h3>
-            <div class="sai-status"><span class="sai-status-dot"></span> Online</div>
+            <h3 id="sai-title">Support</h3>
+            <div class="sai-header-subtitle">Powered by <strong>Support-AI</strong></div>
           </div>
         </div>
         <button id="supportai-close-btn" class="sai-icon-btn" aria-label="Close chat">
@@ -468,7 +495,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
       </form>
-      <div class="sai-footer-badge">Powered by <strong>SupportAI</strong></div>
+      <div class="sai-footer-badge">Powered by <strong>Support-AI</strong></div>
     </div>
     <button id="supportai-launcher" aria-label="Open support chat" aria-expanded="false">
       <span id="sai-unread-badge" aria-hidden="true">0</span>
@@ -603,6 +630,23 @@
     });
     scrollBtn.addEventListener("click", () => scrollToBottom(true));
 
+    function appendWelcomeGreeting(userName) {
+        const greeting = document.createElement("div");
+        greeting.id = "sai-welcome-greeting";
+
+        const userGreeting = document.createElement("div");
+        userGreeting.className = "sai-greeting-user";
+        userGreeting.innerHTML = userName ? `Hi ${escapeHtml(userName)}!` : "Hi there!";
+        greeting.appendChild(userGreeting);
+
+        const subtitle = document.createElement("div");
+        subtitle.className = "sai-greeting-subtitle";
+        subtitle.innerHTML = `I can help you with <span class="sai-greeting-highlight">${config.welcome_message || "anything you need"}</span>`;
+        greeting.appendChild(subtitle);
+
+        messagesBox.insertBefore(greeting, scrollBtn);
+    }
+
     function appendMessage(role, text, opts) {
         opts = opts || {};
         const renderRole = (role || "").toLowerCase() === "user" ? "user" : "assistant";
@@ -709,8 +753,8 @@
                 avatarBox.textContent = config.widget_title.charAt(0).toUpperCase();
             }
 
-            if (messagesBox.querySelectorAll(".sai-msg-row").length === 0) {
-                appendMessage("assistant", config.welcome_message || "Hi! How can we help?");
+            if (messagesBox.querySelectorAll(".sai-msg-row").length === 0 && !messagesBox.querySelector("#sai-welcome-greeting")) {
+                appendWelcomeGreeting(config.user_name);
                 renderSuggestions();
             }
 
@@ -740,10 +784,13 @@
             if (msgs.length > knownBackendMessageCount) {
                 const newCount = msgs.length - knownBackendMessageCount;
                 hideSuggestions();
-                messagesBox.querySelectorAll(".sai-msg-row, .sai-sources").forEach((el) => el.remove());
-                appendMessage("assistant", config.welcome_message || "Hi! How can we help?");
-                for (const msg of msgs) {
-                    appendMessage(msg.role, msg.content, { citations: msg.citations });
+                messagesBox.querySelectorAll(".sai-msg-row, .sai-sources, #sai-welcome-greeting").forEach((el) => el.remove());
+                if (msgs.length === 0) {
+                    appendWelcomeGreeting(config.user_name);
+                } else {
+                    for (const msg of msgs) {
+                        appendMessage(msg.role, msg.content, { citations: msg.citations });
+                    }
                 }
                 if (!isOpen) setUnread(unreadCount + newCount);
                 knownBackendMessageCount = msgs.length;

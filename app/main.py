@@ -130,12 +130,14 @@ Instrumentator().instrument(app).expose(app)
 
 # 3. Initialize OpenTelemetry (Distributed Tracing Timelines)
 # This configures where the "Package Tracking" data should be sent
-provider = TracerProvider()
-processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=settings.otlp_endpoint))
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
-# This injects the tracker into all our FastAPI routes
-FastAPIInstrumentor.instrument_app(app)
+# Skip during tests to avoid connecting to Jaeger
+if settings.environment not in ("test", "testing"):
+    provider = TracerProvider()
+    processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=settings.otlp_endpoint))
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+    # This injects the tracker into all our FastAPI routes
+    FastAPIInstrumentor.instrument_app(app)
 
 @app.get("/")
 async def root():

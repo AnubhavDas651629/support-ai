@@ -1,6 +1,11 @@
+import os
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+
+# Set test environment before importing app to disable OpenTelemetry/Sentry
+os.environ["ENVIRONMENT"] = "test"
+
 from app.db.dependencies import get_db
 from app.main import app
 from app.core.config import settings
