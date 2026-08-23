@@ -5,3 +5,4 @@ __pycache__/
 dump.rdb
 storage/
 .pytest_cache/
+*.log
