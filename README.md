@@ -6,7 +6,7 @@ Every support team faces the same tradeoff: chatbots that hallucinate answers an
 
 Built for teams shipping AI support *now*, not a research demo: multi-tenant isolation, Stripe-metered usage limits, HMAC-signed outbound webhooks, and prompt-injection guardrails are in the codebase today, not on a roadmap.
 
-[![CI](https://github.com/AnubhavDas651629/SUPPORT-AI/actions/workflows/deploy.yml/badge.svg)](https://github.com/AnubhavDas651629/SUPPORT-AI/actions/workflows/deploy.yml)
+[![CI](https://github.com/AnubhavDas651629/support-ai/actions/workflows/deploy.yml/badge.svg)](https://github.com/AnubhavDas651629/support-ai/actions/workflows/deploy.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
