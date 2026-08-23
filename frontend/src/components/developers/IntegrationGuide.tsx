@@ -5,20 +5,19 @@ import { ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { Tabs, TabPanel } from "@/components/ui/Tabs";
+import { API_ORIGIN } from "@/lib/api";
 import { useOrganization } from "@/context/OrganizationContext";
 
 /**
- * Copy-pasteable integration snippets. The API base is whatever the frontend
- * is configured to call, so the snippets match this deployment.
+ * Copy-pasteable integration snippets, resolved against the backend's own
+ * origin (not the frontend's, and not the relative `/api/v1` the browser
+ * uses internally) so the API docs link and widget snippet actually resolve.
  */
 export function IntegrationGuide() {
   const { currentOrg } = useOrganization();
   const [tab, setTab] = useState("widget");
 
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_URL ||
-    (typeof window !== "undefined" ? `${window.location.origin}/api/v1` : "/api/v1");
-  const host = apiBase.replace(/\/api\/v1\/?$/, "");
+  const host = API_ORIGIN;
   const orgId = currentOrg?.id ?? "YOUR_ORGANIZATION_ID";
 
   const snippets: Record<string, { language: string; code: string }> = {

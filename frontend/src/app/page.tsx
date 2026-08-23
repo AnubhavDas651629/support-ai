@@ -10,6 +10,7 @@ import { ActionsSection } from "@/components/marketing/ActionsSection";
 import { AnalyticsSection } from "@/components/marketing/AnalyticsSection";
 import { DevelopersSection } from "@/components/marketing/DevelopersSection";
 import { PricingSection } from "@/components/marketing/PricingSection";
+import { TryItSection } from "@/components/marketing/TryItSection";
 import { FinalCta } from "@/components/marketing/FinalCta";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 
@@ -29,6 +30,7 @@ export default function LandingPage() {
         <AnalyticsSection />
         <DevelopersSection />
         <PricingSection />
+        <TryItSection />
         <FinalCta />
       </main>
       <SiteFooter />

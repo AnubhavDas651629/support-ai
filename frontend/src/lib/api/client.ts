@@ -12,6 +12,19 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/**
+ * Absolute origin of the FastAPI backend, for links that must resolve outside
+ * the browser's same-origin proxy (the "API docs" link, the widget <script>
+ * snippet). `API_BASE_URL` is deliberately relative in dev (`/api/v1`, proxied
+ * by next.config.ts) so browser requests avoid CORS — that relative path
+ * doesn't point anywhere on its own, so it can't be reused for these.
+ */
+export const API_ORIGIN =
+  process.env.NEXT_PUBLIC_API_ORIGIN ||
+  (API_BASE_URL.startsWith("http")
+    ? API_BASE_URL.replace(/\/api\/v1\/?$/, "")
+    : "http://localhost:8000");
+
 const ACCESS_KEY = "supportai_access_token";
 const REFRESH_KEY = "supportai_refresh_token";
 const USER_KEY = "supportai_user";

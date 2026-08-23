@@ -33,6 +33,10 @@ async def get_usage_summary(
             used=summary["ai_responses"]["used"],
             limit=summary["ai_responses"]["limit"],
         ),
+        ai_tokens=UsageMetric(
+            used=summary["ai_tokens"]["total_used"],
+            limit=summary["ai_tokens"]["limit"],
+        ),
         storage_bytes=UsageMetric(
             used=summary["storage_bytes"]["used"],
             limit=summary["storage_bytes"]["limit"],

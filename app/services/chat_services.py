@@ -232,7 +232,10 @@ class ChatService(BaseService):
         conversation_id: UUID,
         question: str,
         limit: int = 5,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict, None]:
+        """Yields answer tokens as they generate, then — if the answer drew on
+        any knowledge base chunks — a single terminal `{"citations": [...]}`
+        dict distinguishing itself from token strings via isinstance()."""
 
         conversation = await self.conversation_service.get_conversation(
             conversation_id=conversation_id
@@ -320,6 +323,12 @@ class ChatService(BaseService):
             )
             for chunk in chunks
         ]
+
+        if citations:
+            # Terminal, non-string item: callers (SSE endpoints) distinguish
+            # this from token chunks via isinstance() and emit it as its own
+            # "citations" event once the answer has finished streaming.
+            yield {"citations": [c.model_dump(mode="json") for c in citations]}
 
         assistant_message = await self.conversation_service.create_message(
             conversation_id=conversation.id,

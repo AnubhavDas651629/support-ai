@@ -78,88 +78,100 @@ class SubscriptionServices(BaseService):
             )
 
 
+    async def _ensure_stripe_customer(
+        self, *, organization_id: UUID, current_user: User, sub: OrganizationSubscription
+    ) -> str:
+        """
+        Returns the organization's Stripe customer id, creating it if missing.
+
+        Both checkout and the billing portal need a customer to point at.
+        Orgs whose tier was set outside Stripe (seeded, or changed directly in
+        the database) never had one, which is why the portal used to dead-end
+        with a 400 — the plan buttons had nothing to open. Creating it on
+        demand and persisting it means every plan action lands on a real
+        Stripe page. It also guarantees the customer id is stored before
+        checkout, so the customer.subscription.created webhook can always
+        resolve the org even if it arrives before checkout.session.completed.
+        """
+        if sub.stripe_customer_id:
+            return sub.stripe_customer_id
+
+        organization = await self.organization_repository.get_by_id(organization_id)
+
+        stripe.api_key = settings.stripe_secret_key
+        customer = stripe.Customer.create(
+            email=current_user.email,
+            name=organization.name if organization else None,
+            metadata={"organization_id": str(organization_id)},
+        )
+
+        sub.stripe_customer_id = customer.id
+        await self.session.commit()
+        return customer.id
+
     async def create_checkout_session(
-        self, 
-        *, 
-        organization_id: UUID, 
+        self,
+        *,
+        organization_id: UUID,
         current_user: User,
-        price_id: str, 
+        price_id: str,
         success_url: str,
         cancel_url: str
     ) -> str:
         """
         Creates a Stripe hosted checkout session URL.
-        If live Stripe keys are provided, redirects to Stripe Checkout.
-        In local development with test/placeholder keys, simulates the upgrade smoothly.
+
+        The plan tier itself is never set here — only the
+        `customer.subscription.created`/`updated` webhook (see
+        handle_webhook_event) does that, once Stripe confirms payment. If the
+        Stripe API call fails for any reason, it raises stripe.StripeError,
+        which app/core/exception_handlers.py turns into a 502 — there is no
+        fallback that grants a plan without a real, paid Stripe subscription.
         """
         await self._require_owner(
             organization_id=organization_id,
             current_user=current_user,
         )
 
-        # 1. Determine target plan tier from price_id
-        target_tier = PlanTier.PRO
-        if "enterprise" in price_id.lower():
-            target_tier = PlanTier.ENTERPRISE
-        elif "pro" in price_id.lower():
-            target_tier = PlanTier.PRO
-
-        # 2. Resolve Stripe Price ID from config if generic tier was passed
+        # Resolve Stripe Price ID from config if a generic tier name was passed
         actual_price_id = price_id
         if price_id in ["price_pro_monthly", "PRO", "pro"]:
             actual_price_id = settings.stripe_pro_price_id or price_id
         elif price_id in ["price_enterprise_monthly", "ENTERPRISE", "enterprise"]:
             actual_price_id = settings.stripe_enterprise_price_id or price_id
 
-        # 3. Check if real Stripe credentials exist
-        has_real_stripe = (
-            bool(settings.stripe_secret_key)
-            and not "YOUR_KEY_HERE" in settings.stripe_secret_key
-            and settings.stripe_secret_key.startswith("sk_")
-        )
-
         sub = await self.get_or_create_subscription(
             organization_id=organization_id
         )
 
-        if has_real_stripe:
-            try:
-                stripe.api_key = settings.stripe_secret_key
-                customer_id = sub.stripe_customer_id
-                session = stripe.checkout.Session.create(
-                    mode="subscription",
-                    line_items=[{"price": actual_price_id, "quantity": 1}],
-                    success_url=success_url,
-                    cancel_url=cancel_url,
-                    customer=customer_id,
-                    metadata={"organization_id": str(organization_id)}
-                )
-                return session.url
-            except stripe.error.StripeError as e:
-                # If Stripe throws in development, proceed to dev simulation
-                if not settings.debug:
-                    raise
-
-        # 4. Development Sandbox Upgrade Fallback:
-        # Instantly update organization subscription tier in PostgreSQL
-        sub.plan_tier = target_tier
-        sub.status = SubscriptionStatus.ACTIVE
-        await self.session.commit()
-
-        # Reset usage limits for new plan
-        usage_service = UsageService(session=self.session)
-        await usage_service._get_or_create_usage(
+        customer_id = await self._ensure_stripe_customer(
             organization_id=organization_id,
+            current_user=current_user,
+            sub=sub,
         )
 
-        sep = "&" if "?" in success_url else "?"
-        return f"{success_url}{sep}upgraded={target_tier.value.lower()}"
+        stripe.api_key = settings.stripe_secret_key
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": actual_price_id, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer=customer_id,
+            metadata={"organization_id": str(organization_id)}
+        )
+        return session.url
 
     async def create_portal_session(
         self, *, organization_id: UUID, current_user: User, return_url: str
     ) -> str:
         """
-        Creates a Stripe billing portal session URL.
+        Creates a Stripe billing portal session URL — the page where a customer
+        switches plan, updates their card, or cancels (which downgrades them to
+        FREE via the customer.subscription.deleted webhook).
+
+        The customer is created on demand when the org doesn't have one yet, so
+        this never dead-ends; what the portal offers still depends on what the
+        customer actually has in Stripe.
         """
         await self._require_owner(
             organization_id=organization_id,
@@ -169,26 +181,18 @@ class SubscriptionServices(BaseService):
             organization_id=organization_id
         )
 
-        has_real_stripe = (
-            bool(settings.stripe_secret_key)
-            and not "YOUR_KEY_HERE" in settings.stripe_secret_key
-            and settings.stripe_secret_key.startswith("sk_")
+        customer_id = await self._ensure_stripe_customer(
+            organization_id=organization_id,
+            current_user=current_user,
+            sub=sub,
         )
 
-        if has_real_stripe and sub.stripe_customer_id:
-            try:
-                stripe.api_key = settings.stripe_secret_key
-                session = stripe.billing_portal.Session.create(
-                    customer=sub.stripe_customer_id,
-                    return_url=return_url
-                )
-                return session.url
-            except stripe.error.StripeError:
-                if not settings.debug:
-                    raise
-
-        sep = "&" if "?" in return_url else "?"
-        return f"{return_url}{sep}portal=active"
+        stripe.api_key = settings.stripe_secret_key
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=return_url
+        )
+        return session.url
 
     async def handle_webhook_event(self, *, payload:bytes, sig_header: str) -> None:
         """
