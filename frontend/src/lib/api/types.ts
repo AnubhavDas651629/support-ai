@@ -303,6 +303,10 @@ export interface Subscription {
   current_period_start: string;
   current_period_end: string;
   limits: PlanLimits;
+  /** A Stripe customer exists for this org — the billing portal can be opened. */
+  has_billing_account: boolean;
+  /** Stripe is already billing a subscription — plan changes belong in the portal. */
+  has_stripe_subscription: boolean;
 }
 
 export interface UsageMetric {
@@ -314,6 +318,7 @@ export interface UsageSummary {
   period_start: string;
   period_end: string;
   ai_responses: UsageMetric;
+  ai_tokens: UsageMetric;
   storage_bytes: UsageMetric;
   conversations: UsageMetric;
 }

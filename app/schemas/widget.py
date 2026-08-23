@@ -35,10 +35,17 @@ class WidgetChatStreamRequest(BaseModel):
     visitor_id: str | None = None
 
 
+class WidgetCitation(BaseModel):
+    document_id: UUID
+    filename: str
+    chunk_index: int
+
+
 class WidgetMessageResponse(BaseModel):
     id: UUID
     role: str
     content: str
+    citations: list[WidgetCitation] = Field(default_factory=list)
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
