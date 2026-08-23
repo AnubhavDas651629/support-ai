@@ -6,3 +6,4 @@ dump.rdb
 storage/
 .pytest_cache/
 *.log
+docs/
