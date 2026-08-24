@@ -74,3 +74,4 @@ jobs:
           cd ~/SUPPORT-AI
           git pull origin main
           docker compose up --build -d api worker
+          docker compose exec -T api uv run alembic upgrade head
